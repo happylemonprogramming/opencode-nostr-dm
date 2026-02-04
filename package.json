@@ -1,0 +1,54 @@
+{
+  "name": "@happylemonprogramming/opencode-nostr-dm",
+  "version": "0.1.0",
+  "description": "OpenCode plugin for Nostr DM integration (NIP-04)",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    }
+  },
+  "files": [
+    "dist/",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "prepublishOnly": "bun run build"
+  },
+  "keywords": [
+    "opencode",
+    "plugin",
+    "nostr",
+    "dm",
+    "nip-04",
+    "messaging"
+  ],
+  "author": "happylemonprogramming",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/happylemonprogramming/opencode-nostr-dm.git"
+  },
+  "bugs": {
+    "url": "https://github.com/happylemonprogramming/opencode-nostr-dm/issues"
+  },
+  "homepage": "https://github.com/happylemonprogramming/opencode-nostr-dm#readme",
+  "peerDependencies": {
+    "@opencode-ai/plugin": "*"
+  },
+  "dependencies": {
+    "nostr-tools": "^2.10.2",
+    "websocket-polyfill": "^0.0.3"
+  },
+  "devDependencies": {
+    "@opencode-ai/plugin": "latest",
+    "@types/bun": "latest",
+    "typescript": "^5.8.0"
+  }
+}

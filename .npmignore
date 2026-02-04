@@ -1,0 +1,13 @@
+src/
+*.ts
+!*.d.ts
+tsconfig.json
+.env
+.env.*
+examples/
+tests/
+.github/
+*.test.ts
+*.spec.ts
+node_modules/
+.git/
