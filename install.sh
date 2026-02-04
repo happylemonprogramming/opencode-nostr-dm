@@ -12,8 +12,8 @@ export PATH="$HOME/.local/bin:$PATH"
 
 # Install nak (nostr army knife) for key generation
 echo "[2/6] Installing nak (key generator)..."
-curl -fsSL https://github.com/fiatjaf/nak/releases/latest/download/nak-linux-amd64 -o /usr/local/bin/nak
-chmod +x /usr/local/bin/nak
+curl -sSL https://raw.githubusercontent.com/fiatjaf/nak/master/install.sh | sh
+export PATH="$HOME/.local/bin:$PATH"
 
 # Create config directory
 echo "[3/6] Creating config directory..."
