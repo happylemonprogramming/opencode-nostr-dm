@@ -1,5 +1,5 @@
 {
-  "name": "@lemonprogramming/opencode-nostr-dm",
+  "name": "opencode-nostr-dm",
   "version": "0.1.0",
   "description": "OpenCode plugin for Nostr DM integration (NIP-04)",
   "type": "module",
