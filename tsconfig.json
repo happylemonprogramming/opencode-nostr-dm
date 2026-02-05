@@ -5,7 +5,7 @@
     "lib": ["ES2022", "DOM"],
     "moduleResolution": "bundler",
     "outDir": "./dist",
-    "rootDir": "./src",
+    "rootDir": ".",
     "declaration": true,
     "declarationMap": true,
     "sourceMap": true,
@@ -17,6 +17,6 @@
     "allowSyntheticDefaultImports": true,
     "types": ["bun"]
   },
-  "include": ["src/**/*"],
+  "include": ["plugin.ts"],
   "exclude": ["node_modules", "dist"]
 }

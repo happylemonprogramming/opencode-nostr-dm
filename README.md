@@ -94,6 +94,7 @@ curl http://127.0.0.1:4096/event
 |----------|----------|---------|-------------|
 | `NOSTR_PRIVATE_KEY` | Yes | - | Private key (nsec1... or hex) |
 | `NOSTR_RELAYS` | No | 3 default relays | Comma-separated relay URLs |
+| `NOSTR_DEFAULT_MODEL` | No | `opencode/big-pickle` | Default AI model (free) |
 | `NOSTR_DEBUG` | No | `false` | Enable debug logging |
 
 Edit config: `nano ~/.config/opencode/.env`
@@ -152,6 +153,9 @@ Each sender gets their own persistent session (until server restart).
 | Command | Description |
 |---------|-------------|
 | `/new` | Clear current session and start a fresh conversation |
+| `/models` | Change AI model - prompts for model name, reverts if invalid |
+
+**Note:** The default model (`opencode/big-pickle`) is free. To use paid models (e.g., `anthropic/claude-sonnet-4-20250514`), add the appropriate API key to your `.env` file (see `.env.example`).
 
 ## Troubleshooting
 

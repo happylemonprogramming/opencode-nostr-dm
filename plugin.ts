@@ -116,6 +116,10 @@ export const NostrDMPlugin: Plugin = async ({ client }) => {
   // Initialize Nostr connection
   const pool = new SimplePool()
   const sessions = new Map<string, string>() // senderPubkey -> sessionId
+  const userModels = new Map<string, string>() // senderPubkey -> current model
+  const pendingModelChange = new Map<string, string>() // senderPubkey -> previous model (waiting for input)
+  
+  const defaultModel = getConfig('NOSTR_DEFAULT_MODEL', 'opencode/big-pickle')
 
   // Subscribe to incoming DMs
   const filter = {
@@ -143,6 +147,59 @@ export const NostrDMPlugin: Plugin = async ({ client }) => {
           console.log('[NostrDM] Decrypted message from:', nip19.npubEncode(event.pubkey).slice(0, 16))
           console.log('[NostrDM] Content:', decrypted)
 
+          // Helper to send a DM response
+          const sendDM = async (text: string) => {
+            const encrypted = await nip04.encrypt(privKeyHex, event.pubkey, text)
+            const dmEvent = finalizeEvent({
+              kind: 4,
+              created_at: Math.floor(Date.now() / 1000),
+              tags: [['p', event.pubkey]],
+              content: encrypted,
+            }, privKeyBytes)
+            await Promise.any(pool.publish(relays, dmEvent))
+          }
+
+          // Check if user is in model selection mode
+          if (pendingModelChange.has(event.pubkey)) {
+            const previousModel = pendingModelChange.get(event.pubkey)!
+            const requestedModel = decrypted.trim()
+            pendingModelChange.delete(event.pubkey)
+            
+            console.log('[NostrDM] Model change requested:', requestedModel)
+            
+            // Try to create a new session with the requested model to validate it
+            const testResult = await client.session.create({
+              body: {
+                title: `Nostr DM: ${nip19.npubEncode(event.pubkey).slice(0, 16)}...`,
+                model: requestedModel
+              } as any
+            })
+            
+            if (testResult.error) {
+              // Model not recognized, revert to previous
+              console.log('[NostrDM] Model not recognized, reverting to:', previousModel)
+              await sendDM(`Model "${requestedModel}" not recognized. Keeping current model: ${previousModel}`)
+              return
+            }
+            
+            // Model is valid - update user's model and session
+            userModels.set(event.pubkey, requestedModel)
+            sessions.set(event.pubkey, testResult.data.id)
+            console.log('[NostrDM] Model changed to:', requestedModel)
+            await sendDM(`Model changed to: ${requestedModel}`)
+            return
+          }
+
+          // Handle /models command
+          const isModelsCommand = decrypted.trim().toLowerCase() === '/models'
+          if (isModelsCommand) {
+            const currentModel = userModels.get(event.pubkey) || defaultModel
+            pendingModelChange.set(event.pubkey, currentModel)
+            console.log('[NostrDM] /models command received, waiting for model input')
+            await sendDM(`Current model: ${currentModel}\n\nWhat model would you like to change to?`)
+            return
+          }
+
           // Handle /new command - create fresh session
           const isNewCommand = decrypted.trim().toLowerCase() === '/new'
           if (isNewCommand) {
@@ -151,16 +208,18 @@ export const NostrDMPlugin: Plugin = async ({ client }) => {
           }
 
           // Helper to create a new session
-          const createSession = async (): Promise<string | null> => {
+          const createSession = async (): Promise<string | undefined> => {
+            const model = userModels.get(event.pubkey) || defaultModel
             const result = await client.session.create({
               body: {
-                title: `Nostr DM: ${nip19.npubEncode(event.pubkey).slice(0, 16)}...`
-              }
+                title: `Nostr DM: ${nip19.npubEncode(event.pubkey).slice(0, 16)}...`,
+                model: model
+              } as any
             })
 
             if (result.error) {
               console.error('[NostrDM] Failed to create session:', result.error)
-              return null
+              return undefined
             }
 
             const newSessionId = result.data.id
@@ -178,18 +237,8 @@ export const NostrDMPlugin: Plugin = async ({ client }) => {
 
           // For /new command, just confirm the new session was created
           if (isNewCommand) {
-            const responseText = 'Session cleared. Starting fresh conversation.'
             console.log('[NostrDM] Sending /new confirmation')
-            
-            const encrypted = await nip04.encrypt(privKeyHex, event.pubkey, responseText)
-            const dmEvent = finalizeEvent({
-              kind: 4,
-              created_at: Math.floor(Date.now() / 1000),
-              tags: [['p', event.pubkey]],
-              content: encrypted,
-            }, privKeyBytes)
-            
-            await Promise.any(pool.publish(relays, dmEvent))
+            await sendDM('Session cleared. Starting fresh conversation.')
             console.log('[NostrDM] /new confirmation sent')
             return
           }
