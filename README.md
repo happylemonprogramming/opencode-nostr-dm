@@ -12,22 +12,20 @@ This one command will:
 1. Install Node.js (for nostr-tools dependency)
 2. Install OpenCode
 3. Install nak (key generator)
-4. Generate a fresh Nostr keypair
+4. **Prompt for your private key** (or press Enter to generate a new one)
 5. Configure the plugin
-6. Print your npub
+6. Set up systemd service (runs 24/7, survives reboots)
+7. Start the server automatically
+8. Print your npub
 
-Then start the server:
+**That's it!** Send a DM to the npub shown at the end from any Nostr client (Primal, Damus, Amethyst, etc.) and get AI responses!
+
+**Useful commands:**
 ```bash
-source ~/.bashrc
-opencode serve --print-logs
+systemctl status opencode    # Check status
+journalctl -u opencode -f    # View logs
+systemctl restart opencode   # Restart service
 ```
-
-Trigger the plugin (in another terminal):
-```bash
-curl http://127.0.0.1:4096/event
-```
-
-**Send a DM to the npub shown in the logs** from any Nostr client (Primal, Damus, Amethyst, etc.) and get AI responses!
 
 ## Manual Installation
 
@@ -99,7 +97,9 @@ curl http://127.0.0.1:4096/event
 
 Edit config: `nano ~/.config/opencode/.env`
 
-## Keep Running 24/7 (systemd)
+## Systemd Service (24/7 Operation)
+
+The quick install automatically sets up a systemd service. If you used manual installation, run:
 
 ```bash
 cat > /etc/systemd/system/opencode.service << 'EOF'
@@ -126,8 +126,13 @@ systemctl enable opencode
 systemctl start opencode
 ```
 
-Check status: `systemctl status opencode`
-View logs: `journalctl -u opencode -f`
+**Service commands:**
+```bash
+systemctl status opencode     # Check status
+journalctl -u opencode -f     # View logs (follow mode)
+systemctl restart opencode    # Restart after config changes
+systemctl stop opencode       # Stop the service
+```
 
 ## How It Works
 
