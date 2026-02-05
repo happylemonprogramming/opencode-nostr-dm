@@ -3,12 +3,12 @@
   "version": "0.1.0",
   "description": "OpenCode plugin for Nostr DM integration (NIP-04)",
   "type": "module",
-  "main": "./dist/index.js",
-  "types": "./dist/index.d.ts",
+  "main": "./dist/plugin.js",
+  "types": "./dist/plugin.d.ts",
   "exports": {
     ".": {
-      "import": "./dist/index.js",
-      "types": "./dist/index.d.ts"
+      "import": "./dist/plugin.js",
+      "types": "./dist/plugin.d.ts"
     }
   },
   "files": [

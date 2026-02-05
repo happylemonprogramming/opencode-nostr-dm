@@ -143,9 +143,15 @@ export const NostrDMPlugin: Plugin = async ({ client }) => {
           console.log('[NostrDM] Decrypted message from:', nip19.npubEncode(event.pubkey).slice(0, 16))
           console.log('[NostrDM] Content:', decrypted)
 
-          // Get or create session
-          let sessionId = sessions.get(event.pubkey)
-          if (!sessionId) {
+          // Handle /new command - create fresh session
+          const isNewCommand = decrypted.trim().toLowerCase() === '/new'
+          if (isNewCommand) {
+            sessions.delete(event.pubkey)
+            console.log('[NostrDM] /new command received, clearing session')
+          }
+
+          // Helper to create a new session
+          const createSession = async (): Promise<string | null> => {
             const result = await client.session.create({
               body: {
                 title: `Nostr DM: ${nip19.npubEncode(event.pubkey).slice(0, 16)}...`
@@ -154,25 +160,66 @@ export const NostrDMPlugin: Plugin = async ({ client }) => {
 
             if (result.error) {
               console.error('[NostrDM] Failed to create session:', result.error)
-              return
+              return null
             }
 
-            sessionId = result.data.id
-            sessions.set(event.pubkey, sessionId)
-            console.log('[NostrDM] Created session:', sessionId)
+            const newSessionId = result.data.id
+            sessions.set(event.pubkey, newSessionId)
+            console.log('[NostrDM] Created session:', newSessionId)
+            return newSessionId
+          }
+
+          // Get or create session
+          let sessionId = sessions.get(event.pubkey)
+          if (!sessionId) {
+            sessionId = await createSession()
+            if (!sessionId) return
+          }
+
+          // For /new command, just confirm the new session was created
+          if (isNewCommand) {
+            const responseText = 'Session cleared. Starting fresh conversation.'
+            console.log('[NostrDM] Sending /new confirmation')
+            
+            const encrypted = await nip04.encrypt(privKeyHex, event.pubkey, responseText)
+            const dmEvent = finalizeEvent({
+              kind: 4,
+              created_at: Math.floor(Date.now() / 1000),
+              tags: [['p', event.pubkey]],
+              content: encrypted,
+            }, privKeyBytes)
+            
+            await Promise.any(pool.publish(relays, dmEvent))
+            console.log('[NostrDM] /new confirmation sent')
+            return
           }
 
           // Send message to OpenCode
-          const response = await client.session.prompt({
+          let response = await client.session.prompt({
             path: { id: sessionId },
             body: {
               parts: [{ type: 'text', text: decrypted }]
             }
           })
 
+          // If session is invalid, create new one and retry
           if (response.error) {
-            console.error('[NostrDM] Failed to prompt:', response.error)
-            return
+            console.log('[NostrDM] Session error, creating new session and retrying...')
+            sessions.delete(event.pubkey)
+            sessionId = await createSession()
+            if (!sessionId) return
+
+            response = await client.session.prompt({
+              path: { id: sessionId },
+              body: {
+                parts: [{ type: 'text', text: decrypted }]
+              }
+            })
+
+            if (response.error) {
+              console.error('[NostrDM] Failed to prompt after retry:', response.error)
+              return
+            }
           }
 
           // Extract response text

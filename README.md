@@ -141,9 +141,17 @@ Each sender gets their own persistent session (until server restart).
 
 - NIP-04 encrypted direct messages
 - Automatic session management (one session per sender)
+- `/new` command support - send `/new` to clear context and start fresh
+- Automatic session recovery if session becomes invalid
 - Multi-relay support
 - Free AI models (no API keys needed)
 - Debug logging
+
+## Commands
+
+| Command | Description |
+|---------|-------------|
+| `/new` | Clear current session and start a fresh conversation |
 
 ## Troubleshooting
 
@@ -163,5 +171,6 @@ MIT
 ## Links
 
 - [GitHub](https://github.com/happylemonprogramming/opencode-nostr-dm)
+- [npm](https://www.npmjs.com/package/opencode-nostr-dm)
 - [OpenCode](https://opencode.ai)
 - [Nostr Protocol](https://nostr.com)
