@@ -1,269 +1,160 @@
 # OpenCode Nostr DM Plugin
 
-Send messages to your OpenCode instance via Nostr encrypted DMs (NIP-04).
+Chat with [OpenCode AI](https://opencode.ai) via Nostr encrypted DMs (NIP-04).
 
-[![npm version](https://img.shields.io/npm/v/@happylemonprogramming/opencode-nostr-dm.svg)](https://www.npmjs.com/package/@happylemonprogramming/opencode-nostr-dm)
-
-## Features
-
-- ✅ NIP-04 encrypted direct messages
-- ✅ Automatic session management (one session per sender)
-- ✅ Session persistence with configurable timeout
-- ✅ Multi-relay support
-- ✅ Optional sender whitelist
-- ✅ Debug logging
-
-## Installation
-
-### From npm
-
-Add to your `opencode.json`:
-
-```json
-{
-  "$schema": "https://opencode.ai/config.json",
-  "plugin": ["@happylemonprogramming/opencode-nostr-dm"]
-}
-```
-
-OpenCode will automatically install the plugin on startup.
-
-### Local Development
+## Quick Install (Ubuntu/Debian Server)
 
 ```bash
-git clone https://github.com/happylemonprogramming/opencode-nostr-dm
-cd opencode-nostr-dm
-bun install
-bun run build
+curl -fsSL https://raw.githubusercontent.com/happylemonprogramming/opencode-nostr-dm/main/install.sh | bash
+```
+
+This one command will:
+1. Install Node.js (for nostr-tools dependency)
+2. Install OpenCode
+3. Install nak (key generator)
+4. Generate a fresh Nostr keypair
+5. Configure the plugin
+6. Print your npub
+
+Then start the server:
+```bash
+source ~/.bashrc
+opencode serve --print-logs
+```
+
+Trigger the plugin (in another terminal):
+```bash
+curl http://127.0.0.1:4096/event
+```
+
+**Send a DM to the npub shown in the logs** from any Nostr client (Primal, Damus, Amethyst, etc.) and get AI responses!
+
+## Manual Installation
+
+### 1. Install OpenCode
+```bash
+curl -fsSL https://opencode.ai/install | bash
+source ~/.bashrc
+```
+
+### 2. Install Node.js & nostr-tools
+```bash
+curl -fsSL https://deb.nodesource.com/setup_22.x | bash -
+apt-get install -y nodejs
+cd ~/.config/opencode
+npm init -y
+npm install nostr-tools
+```
+
+### 3. Install nak & Generate Keypair
+```bash
+curl -sSL https://raw.githubusercontent.com/fiatjaf/nak/master/install.sh | sh
+export PATH="$HOME/.local/bin:$PATH"
+
+NSEC=$(nak key generate)
+HEX_PUB=$(nak key public $NSEC)
+NPUB=$(echo $HEX_PUB | nak encode npub)
+echo "Your npub: $NPUB"
+```
+
+### 4. Create Config Files
+```bash
+mkdir -p ~/.config/opencode/plugins
+
+cat > ~/.config/opencode/opencode.json << 'EOF'
+{
+  "$schema": "https://opencode.ai/config.json",
+  "model": "opencode/big-pickle"
+}
+EOF
+
+cat > ~/.config/opencode/.env << EOF
+NOSTR_PRIVATE_KEY=$NSEC
+NOSTR_RELAYS=wss://relay.primal.net,wss://nos.lol,wss://relay.damus.io
+NOSTR_DEBUG=true
+EOF
+```
+
+### 5. Download Plugin
+```bash
+curl -fsSL https://raw.githubusercontent.com/happylemonprogramming/opencode-nostr-dm/main/plugin.ts \
+  -o ~/.config/opencode/plugins/nostr-dm.ts
+```
+
+### 6. Start & Test
+```bash
+opencode serve --print-logs
+# In another terminal:
+curl http://127.0.0.1:4096/event
 ```
 
 ## Configuration
 
-### 1. Generate Nostr Keypair
-
-First, generate a keypair for your OpenCode server:
-
-```bash
-# Install nak if you don't have it
-curl -sSL https://raw.githubusercontent.com/fiatjaf/nak/master/install.sh | sh
-
-# Generate keypair
-nak key generate > ~/.nostr-server-key
-
-# Get the public key (npub) to share
-cat ~/.nostr-server-key | nak key public | nak encode npub
-```
-
-**Save the npub** - this is what you'll DM from your phone/client.
-
-### 2. Set Environment Variables
-
-Create `.env` file in your OpenCode config directory:
-
-```bash
-# ~/.config/opencode/.env (or project .env)
-NOSTR_PRIVATE_KEY=$(cat ~/.nostr-server-key)
-NOSTR_RELAYS=wss://relay.primal.net,wss://nos.lol,wss://relay.damus.io
-NOSTR_DEBUG=true
-NOSTR_SESSION_TIMEOUT_HOURS=24
-```
-
-**Or set in your shell:**
-
-```bash
-export NOSTR_PRIVATE_KEY=nsec1...
-export NOSTR_RELAYS=wss://relay.primal.net,wss://nos.lol
-```
-
-### 3. Start OpenCode
-
-```bash
-# Start in headless mode (for servers)
-opencode serve
-
-# Or with TUI
-opencode
-```
-
-### 4. Send a DM
-
-1. Open your Nostr client (Damus, Amethyst, Primal, etc.)
-2. Start a DM to your server's npub
-3. Send: "Hello, what can you do?"
-4. OpenCode will respond!
-
-## Environment Variables
-
 | Variable | Required | Default | Description |
 |----------|----------|---------|-------------|
-| `NOSTR_PRIVATE_KEY` | ✅ Yes | - | Your server's private key (nsec1... or hex) |
-| `NOSTR_RELAYS` | No | `wss://relay.primal.net,wss://nos.lol,wss://relay.damus.io` | Comma-separated relay URLs |
+| `NOSTR_PRIVATE_KEY` | Yes | - | Private key (nsec1... or hex) |
+| `NOSTR_RELAYS` | No | 3 default relays | Comma-separated relay URLs |
 | `NOSTR_DEBUG` | No | `false` | Enable debug logging |
-| `NOSTR_SESSION_TIMEOUT_HOURS` | No | `24` | Session timeout in hours |
-| `NOSTR_ALLOWED_SENDERS` | No | - | Comma-separated sender pubkeys (whitelist) |
 
-## How It Works
+Edit config: `nano ~/.config/opencode/.env`
 
-1. Plugin subscribes to NIP-04 DMs tagged to your server's pubkey
-2. When a DM arrives:
-   - Decrypts the message (NIP-04)
-   - Creates/retrieves an OpenCode session for the sender
-   - Sends the message to OpenCode
-   - Encrypts and sends the response back via Nostr
-
-Each sender gets their own persistent session that lasts 24 hours (configurable).
-
-## Server Deployment (Ubuntu/Debian)
-
-### Quick Setup
+## Keep Running 24/7 (systemd)
 
 ```bash
-# SSH to your server
-ssh root@your-server
-
-# Install OpenCode
-curl -fsSL https://opencode.ai/install | bash
-
-# Create config directory
-mkdir -p ~/.config/opencode
-
-# Add plugin to config
-cat > ~/.config/opencode/opencode.json << 'EOF'
-{
-  "plugin": ["@happylemonprogramming/opencode-nostr-dm"]
-}
-EOF
-
-# Generate Nostr keypair
-nak key generate > ~/.nostr-server-key
-cat ~/.nostr-server-key | nak key public | nak encode npub
-
-# Create .env file
-cat > ~/.config/opencode/.env << 'EOF'
-NOSTR_PRIVATE_KEY=$(cat ~/.nostr-server-key)
-NOSTR_RELAYS=wss://relay.primal.net,wss://nos.lol
-NOSTR_DEBUG=false
-EOF
-
-# Secure the .env
-chmod 600 ~/.config/opencode/.env
-
-# Start OpenCode
-opencode serve
-```
-
-### Production Setup (systemd)
-
-Create systemd service:
-
-```bash
-sudo nano /etc/systemd/system/opencode-nostr.service
-```
-
-**Content:**
-
-```ini
+cat > /etc/systemd/system/opencode.service << 'EOF'
 [Unit]
-Description=OpenCode with Nostr DM Plugin
-After=network-online.target
-Wants=network-online.target
+Description=OpenCode Nostr DM Server
+After=network.target
 
 [Service]
 Type=simple
 User=root
+Environment="PATH=/root/.local/bin:/usr/local/bin:/usr/bin:/bin"
 WorkingDirectory=/root
-EnvironmentFile=/root/.config/opencode/.env
-ExecStart=/root/.opencode/bin/opencode serve
+ExecStart=/root/.local/bin/opencode serve
+ExecStartPost=/bin/bash -c 'sleep 3 && curl -s http://127.0.0.1:4096/event > /dev/null'
 Restart=always
 RestartSec=10
-StandardOutput=journal
-StandardError=journal
-SyslogIdentifier=opencode-nostr
-
-NoNewPrivileges=true
-PrivateTmp=true
 
 [Install]
 WantedBy=multi-user.target
+EOF
+
+systemctl daemon-reload
+systemctl enable opencode
+systemctl start opencode
 ```
 
-**Enable and start:**
+Check status: `systemctl status opencode`
+View logs: `journalctl -u opencode -f`
 
-```bash
-# Reload systemd
-sudo systemctl daemon-reload
+## How It Works
 
-# Enable on boot
-sudo systemctl enable opencode-nostr
+1. Plugin subscribes to NIP-04 DMs tagged to your server's pubkey
+2. When a DM arrives, it decrypts the message and sends it to OpenCode AI
+3. OpenCode AI generates a response
+4. Plugin encrypts and sends the response back via Nostr DM
 
-# Start service
-sudo systemctl start opencode-nostr
+Each sender gets their own persistent session (until server restart).
 
-# Check status
-sudo systemctl status opencode-nostr
+## Features
 
-# View logs
-sudo journalctl -u opencode-nostr -f
-```
+- NIP-04 encrypted direct messages
+- Automatic session management (one session per sender)
+- Multi-relay support
+- Free AI models (no API keys needed)
+- Debug logging
 
-## Security
+## Troubleshooting
 
-- Messages are encrypted with NIP-04 (Nostr's DM encryption)
-- Your private key never leaves the server
-- Optional sender whitelist for access control
-- Sessions are isolated per sender
+**Plugin doesn't load:**
+- Restart OpenCode and trigger with `curl http://127.0.0.1:4096/event`
+- Check logs for `[NostrDM]` messages
 
-**Note:** NIP-04 has known security limitations (metadata leakage). For production use, consider implementing NIP-17 support (gift-wrapped messages with better metadata privacy).
-
-## Debugging
-
-Enable debug logs:
-
-```bash
-NOSTR_DEBUG=true opencode serve
-```
-
-Check OpenCode logs:
-
-```bash
-# If using systemd
-sudo journalctl -u opencode-nostr -f
-
-# Or OpenCode log file
-tail -f ~/.opencode/logs/opencode.log
-```
-
-## Use Cases
-
-### Dedicated Server
-
-Run OpenCode on a remote server and DM it from anywhere:
-
-- Server has full filesystem/tool access
-- You control it from your phone via Nostr DMs
-- Sessions persist across conversations
-- No need for SSH, VPN, or port forwarding
-
-### Shared OpenCode Instance
-
-Add to existing OpenCode setup:
-
-- Multiple users can DM the same OpenCode instance
-- Each user gets their own isolated session
-- Optional whitelist for access control
-
-## Roadmap
-
-- [ ] NIP-17 support (modern private messages with metadata privacy)
-- [ ] Session persistence across restarts (SQLite)
-- [ ] Custom commands (`/new`, `/reset`, `/status`)
-- [ ] File attachment support (via Nostr blossom/nip96)
-- [ ] Multi-user session sharing
-- [ ] Typing indicators
-
-## Contributing
-
-PRs welcome! Please open an issue first to discuss major changes.
+**No DMs received:**
+- Verify `NOSTR_PRIVATE_KEY` is set: `cat ~/.config/opencode/.env`
+- Enable debug: `NOSTR_DEBUG=true`
+- Check you're DMing the correct npub
 
 ## License
 
@@ -272,6 +163,5 @@ MIT
 ## Links
 
 - [GitHub](https://github.com/happylemonprogramming/opencode-nostr-dm)
-- [npm](https://www.npmjs.com/package/@happylemonprogramming/opencode-nostr-dm)
-- [OpenCode Docs](https://opencode.ai/docs)
+- [OpenCode](https://opencode.ai)
 - [Nostr Protocol](https://nostr.com)
